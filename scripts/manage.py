@@ -64,9 +64,9 @@ def main():
             if not (ROOT / "frontend/dist/index.html").is_file():
                 raise SystemExit("Build frontend first")
             # Rotate on start; runtime output contains no request bodies or credentials.
-            log_path = RUNTIME / "arc.log"
+            log_path = RUNTIME / "bootstrap.log"
             if log_path.exists() and log_path.stat().st_size > 1024 * 1024:
-                log_path.replace(RUNTIME / "arc.previous.log")
+                log_path.replace(RUNTIME / "bootstrap.previous.log")
             with log_path.open("ab") as log:
                 process = subprocess.Popen(
                     COMMAND,
@@ -74,6 +74,7 @@ def main():
                     stdin=subprocess.DEVNULL,
                     stdout=log,
                     stderr=log,
+                    env={**os.environ, "ARC_LOG_FILE": str(RUNTIME / "arc.log")},
                     start_new_session=True,
                 )
             time.sleep(0.5)

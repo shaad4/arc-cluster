@@ -71,13 +71,16 @@ class JobService:
             raise HTTPException(503, "Ray Jobs API unavailable") from exc
 
     async def list(self):
-        async with self.lock:
-            if self.cache is not None and time.monotonic() - self.cached_at < 5:
-                return self.cache
+        try:
             async with asyncio.timeout(6):
-                self.cache = await self.fetch_jobs()
-            self.cached_at = time.monotonic()
-            return self.cache
+                async with self.lock:
+                    if self.cache is not None and time.monotonic() - self.cached_at < 5:
+                        return self.cache
+                    self.cache = await self.fetch_jobs()
+                    self.cached_at = time.monotonic()
+                    return self.cache
+        except TimeoutError:
+            raise HTTPException(503, "Ray Jobs API timed out") from None
 
     async def fetch_jobs(self):
         data = await self.request("GET", "/api/jobs/")
