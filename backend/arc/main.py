@@ -5,10 +5,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from arc.api.router import router
 from arc.config import APP_NAME, APP_VERSION, Settings
 from arc.models.error import ErrorResponse
+from arc.security import MutationGuard
+from arc.services.jobs import JobService
 from arc.services.monitor import Monitor
 
 logger = logging.getLogger(__name__)
@@ -19,6 +22,7 @@ def create_app(
 ) -> FastAPI:
     settings = settings or Settings()
     monitor = monitor or Monitor(settings)
+    jobs = JobService(settings)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -27,6 +31,7 @@ def create_app(
             yield
         finally:
             await monitor.close()
+            await jobs.close()
 
     application = FastAPI(
         title=APP_NAME,
@@ -34,6 +39,12 @@ def create_app(
         version=APP_VERSION,
         responses={500: {"model": ErrorResponse}},
     )
+    application.add_middleware(MutationGuard)
+    application.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["localhost", "127.0.0.1", "testserver", "test"],
+    )
+    application.state.jobs = jobs
     application.state.monitor = monitor
     application.state.settings = settings
     application.include_router(router)
