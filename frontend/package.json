@@ -1,0 +1,6 @@
+{
+  "name": "arc-frontend", "version": "0.1.0", "private": true, "type": "module",
+  "scripts": {"dev": "vite --host 127.0.0.1", "build": "tsc -b && vite build", "lint": "eslint .", "test": "vitest run", "typecheck": "tsc -b"},
+  "dependencies": {"react": "latest", "react-dom": "latest", "react-router": "latest", "@tanstack/react-query": "latest", "recharts": "latest", "lucide-react": "latest", "@radix-ui/react-dialog": "latest", "@radix-ui/react-slot": "latest", "class-variance-authority": "latest", "clsx": "latest", "tailwind-merge": "latest", "@fontsource/geist-sans": "latest", "@fontsource/geist-mono": "latest"},
+  "devDependencies": {"typescript": "latest", "vite": "latest", "@vitejs/plugin-react": "latest", "tailwindcss": "latest", "@tailwindcss/vite": "latest", "eslint": "latest", "@eslint/js": "latest", "typescript-eslint": "latest", "eslint-plugin-react-hooks": "latest", "globals": "latest", "@types/react": "latest", "@types/react-dom": "latest", "vitest": "latest", "jsdom": "latest", "@testing-library/react": "latest", "@testing-library/jest-dom": "latest", "@testing-library/user-event": "latest", "@types/node": "latest"}
+}
