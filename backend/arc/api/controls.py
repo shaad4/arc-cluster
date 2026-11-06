@@ -78,13 +78,18 @@ async def control(request, node_id, action, body):
             timeout=60,
             json={"action": action, "confirmed": True},
         )
+        executed_at = time.time()
         monitor.wake.set()
         for _ in range(20):
             await asyncio.sleep(1)
             current = next(n for n in monitor.nodes if n.id == node_id)
-            if monitor.ray.available and (
-                (action == "stop" and current.ray_status == "dead")
-                or (action != "stop" and current.ray_status == "alive")
+            if (
+                monitor.ray.available
+                and (monitor.ray.sampled_at or 0) > executed_at
+                and (
+                    (action == "stop" and current.ray_status == "dead")
+                    or (action != "stop" and current.ray_status == "alive")
+                )
             ):
                 monitor.events.appendleft(
                     Event(

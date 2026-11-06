@@ -1,5 +1,7 @@
+import asyncio
 import json
 import re
+import time
 from pathlib import Path
 
 import httpx
@@ -42,6 +44,9 @@ class Submission(BaseModel):
 class JobService:
     def __init__(self, settings):
         self.settings = settings
+        self.cache = None
+        self.cached_at = 0.0
+        self.lock = asyncio.Lock()
         self.client = httpx.AsyncClient(
             base_url=settings.ray_dashboard, timeout=5, trust_env=False
         )
@@ -66,13 +71,22 @@ class JobService:
             raise HTTPException(503, "Ray Jobs API unavailable") from exc
 
     async def list(self):
+        async with self.lock:
+            if self.cache is not None and time.monotonic() - self.cached_at < 5:
+                return self.cache
+            async with asyncio.timeout(6):
+                self.cache = await self.fetch_jobs()
+            self.cached_at = time.monotonic()
+            return self.cache
+
+    async def fetch_jobs(self):
         data = await self.request("GET", "/api/jobs/")
         return JobList(
             items=[
                 Job(
                     id=j.get("submission_id") or j.get("job_id") or "unknown",
                     submission_id=j.get("submission_id"),
-                    name=j.get("metadata", {}).get("name")
+                    name=(j.get("metadata") or {}).get("name")
                     or j.get("submission_id")
                     or j.get("job_id")
                     or "Driver",
