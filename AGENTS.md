@@ -43,6 +43,23 @@ and fabricated dashboard data.
    `chore:`, or `style:`. Never combine unrelated work or commit broken changes.
 7. Never rewrite history or force-push. Do not push without user approval.
 
-Respect the requested phase and stop point. Phase 1 covers repository inspection,
-these guidelines, the backend foundation, and a tested application health endpoint;
-it does not authorize building the full dashboard or changing the cluster.
+## Full implementation scope
+
+Build the complete seven-page React application and FastAPI control plane in small
+validated commits. Reuse the existing `backend/arc` package. Keep Ray isolated in
+a persistent bridge using `/data/cluster/venv/bin/python`; never install ARC
+packages there. Sampling is centralized, bounded, and independent of browsers.
+Missing or stale observations must remain explicit, never become zero or healthy.
+
+Protect mutations with host/origin validation and confirmation. Agent credentials
+are service-only secrets outside Git. Controls must fail closed when connectivity,
+membership, process state, or workload checks are unavailable. Head controls are
+disabled. Never execute example jobs or change worker state during development.
+
+Serve the production frontend through FastAPI on loopback port 8000. Provide
+unprivileged deployment scripts and optional systemd units; do not enable
+privileged services or install worker agents without approval. Access is through
+an SSH tunnel. No public hosting, tunnels, application login, or wildcard CORS.
+Run backend tests, frontend tests, TypeScript, ESLint, and production build.
+Document deployment gaps honestly. Continue independent work when a remote
+agent or infrastructure permission is unavailable.
