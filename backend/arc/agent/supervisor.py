@@ -77,6 +77,11 @@ class Supervisor:
         )
 
     def configure(self, policy: AgentPolicy):
+        if self.storage_error:
+            raise RecoveryBlocked(
+                "manual_intervention_required",
+                "Inspect recovery ledger before configuring",
+            )
         self.policy = policy
         self.lease_deadline = (
             time.monotonic() + policy.lease_seconds if policy.enabled else 0
@@ -124,6 +129,7 @@ class Supervisor:
         if not self.lease_valid() or self.lock.locked():
             return self.snapshot()
         async with self.lock:
+            attempted = False
             try:
                 if self.storage_error or self.status.manual_hold:
                     return self.snapshot()
@@ -172,6 +178,7 @@ class Supervisor:
                             "worker_stopped", "Ray worker process is absent"
                         )
                     # Persist before touching Ray; restart must not reset the budget.
+                    attempted = True
                     self.status.attempts += 1
                     self.status.last_attempt = self.clock()
                     delay = min(
@@ -195,6 +202,8 @@ class Supervisor:
                     # Counters reset only after five continuous minutes of health.
                     self.stable_since = self.clock()
             except RecoveryBlocked as exc:
+                if attempted:
+                    self.status.last_result = "recovery_failed"
                 self.stable_since = None
                 try:
                     self.transition(exc.state, exc.message)

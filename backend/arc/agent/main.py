@@ -1,28 +1,80 @@
 """Optional non-root Tailscale-only worker agent, separate from dashboard auth."""
 
 import asyncio
+import contextlib
 import hmac
 import ipaddress
-import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
-import psutil
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
+from arc.agent.operations import WorkerOperations, ray_process
+from arc.agent.supervisor import RecoveryBlocked, Supervisor
 from arc.collectors.local import collect_local
+from arc.models.recovery import AgentPolicy, SupervisorStatus
 from arc.services.agents import read_credentials
 from arc.services.logs import local_tail
 
-app = FastAPI(title="ARC worker agent", docs_url=None, redoc_url=None, openapi_url=None)
+
+def recovery_directory():
+    return Path(
+        os.environ.get(
+            "ARC_AGENT_RECOVERY_DIR", str(Path.home() / ".local/state/arc-worker")
+        )
+    )
+
+
+def create_supervisor():
+    directory = recovery_directory()
+    return Supervisor(
+        WorkerOperations(directory),
+        directory / "recovery.json",
+        approved=os.environ.get("ARC_AGENT_SUPERVISOR_APPROVED") == "1",
+    )
+
+
+@asynccontextmanager
+async def lifespan(application):
+    application.state.supervisor = create_supervisor()
+
+    async def supervise():
+        # Short local cadence; leases and per-worker backoff bound actual operations.
+        while True:
+            try:
+                await application.state.supervisor.tick(allow_restart=False)
+            except Exception:
+                # Storage/observation failures must never trigger a restart.
+                pass
+            await asyncio.sleep(10)
+
+    task = asyncio.create_task(supervise(), name="arc-worker-supervisor")
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(
+    title="ARC worker agent",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+    lifespan=lifespan,
+)
 lock = asyncio.Lock()
 
 
-def ray_process() -> bool:
-    return any(p.info["name"] == "raylet" for p in psutil.process_iter(["name"]))
+def supervisor():
+    if not hasattr(app.state, "supervisor"):
+        app.state.supervisor = create_supervisor()
+    return app.state.supervisor
 
 
 @app.middleware("http")
@@ -48,6 +100,7 @@ async def health():
     return {
         "metrics": await asyncio.to_thread(collect_local),
         "ray_process": await asyncio.to_thread(ray_process),
+        "supervisor": supervisor().snapshot().model_dump(),
     }
 
 
@@ -63,25 +116,6 @@ async def logs(source: Literal["raylet", "raylet-error"] = "raylet"):
         raise HTTPException(404, "Log source unavailable") from None
 
 
-async def execute(*args, timeout=15):
-    process = await asyncio.create_subprocess_exec(
-        *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
-    )
-    try:
-        async with asyncio.timeout(timeout):
-            output = await process.stdout.read(65537)
-            if len(output) > 65536:
-                raise ValueError("Command output exceeded limit")
-            await process.wait()
-            if process.returncode:
-                raise ValueError("Command failed")
-            return output
-    finally:
-        if process.returncode is None:
-            process.kill()
-            await process.wait()
-
-
 async def preflight():
     if os.environ.get("ARC_AGENT_BIND") == "100.118.85.127":
         raise HTTPException(403, "Head controls disabled")
@@ -90,18 +124,12 @@ async def preflight():
     if not os.environ.get("ARC_AGENT_STATE_URL"):
         raise HTTPException(409, "Independent State API access is not configured")
     try:
-        result = json.loads(
-            await execute(
-                "/data/cluster/venv/bin/python",
-                str(Path(__file__).with_name("safety.py")),
-            )
-        )
-    except (OSError, ValueError, TimeoutError):
-        raise HTTPException(409, "Safety checks unavailable") from None
-    if not result.get("verified") or result.get("busy"):
-        raise HTTPException(409, "Workloads active or safety state incomplete")
-    result["ray_process"] = await asyncio.to_thread(ray_process)
-    return result
+        state = await supervisor().operations.observe()
+        if state.busy or not state.verified:
+            raise HTTPException(409, "Workloads active or safety state incomplete")
+        return state.model_dump()
+    except RecoveryBlocked as exc:
+        raise HTTPException(409, exc.message) from None
 
 
 @app.get("/preflight")
@@ -127,25 +155,39 @@ async def control(body: Control):
             raise HTTPException(409, "Worker is already a live Ray member")
         if body.action == "start" and state["ray_process"]:
             raise HTTPException(409, "Ray process already exists; inspect recovery")
-        ray_bin = "/data/cluster/venv/bin/ray"
+        engine = supervisor()
         try:
-            if body.action == "stop" or (
-                body.action == "recover" and state["ray_process"]
-            ):
-                await execute(ray_bin, "stop", "--grace-period=5", timeout=20)
-            if body.action in {"start", "recover"}:
-                await execute(
-                    ray_bin,
-                    "start",
-                    "--address=100.118.85.127:6379",
-                    f"--node-ip-address={os.environ['ARC_AGENT_BIND']}",
-                    timeout=25,
+            with engine.operations.guard():
+                if body.action == "stop":
+                    engine.hold()
+                await engine.operations.change(
+                    body.action, os.environ["ARC_AGENT_BIND"]
                 )
+        except RecoveryBlocked as exc:
+            raise HTTPException(409, exc.message) from None
         except (OSError, ValueError, TimeoutError):
             raise HTTPException(
-                502, "Allowlisted Ray command failed; inspect worker logs"
+                502, "Allowlisted command failed; inspect worker"
             ) from None
         return {"executed": True, "action": body.action}
+
+
+@app.put("/automation/policy", response_model=SupervisorStatus)
+async def automation_policy(policy: AgentPolicy):
+    return supervisor().configure(policy)
+
+
+@app.post("/automation/reconcile", response_model=SupervisorStatus)
+async def automation_reconcile():
+    return await supervisor().tick(allow_restart=True)
+
+
+@app.post("/automation/reset", response_model=SupervisorStatus)
+async def automation_reset():
+    try:
+        return supervisor().reset()
+    except RecoveryBlocked as exc:
+        raise HTTPException(409, exc.message) from None
 
 
 def main():
