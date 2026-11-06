@@ -25,3 +25,12 @@ def test_frontend_routing_and_host_validation(tmp_path):
                 ).status_code == 400
 
     asyncio.run(check())
+
+
+def test_default_frontend_path():
+    from pathlib import Path
+
+    assert (
+        Path(Settings().frontend_dist)
+        == Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    )

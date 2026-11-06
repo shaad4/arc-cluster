@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     agent_port: int = 9071
     agent_credentials_file: str = ""
     approved_workload: bool = False
-    frontend_dist: str = str(Path(__file__).resolve().parents[3] / "frontend" / "dist")
+    frontend_dist: str = str(Path(__file__).resolve().parents[2] / "frontend" / "dist")
 
 
 APP_NAME = "ARC"
