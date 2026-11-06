@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     agent_port: int = 9071
     agent_credentials_file: str = ""
     approved_workload: bool = False
+    auto_recovery_approved: bool = False
+    auto_recovery_file: str = str(Path.home() / ".local/state/arc/auto-recovery.json")
     frontend_dist: str = str(Path(__file__).resolve().parents[2] / "frontend" / "dist")
 
 

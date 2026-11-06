@@ -17,6 +17,7 @@ from arc.models.cluster import (
     Overview,
     RayStatus,
 )
+from arc.models.recovery import SupervisorStatus
 from arc.services.bridge import RayBridge
 
 INVENTORY = [
@@ -120,6 +121,12 @@ class Monitor:
             if agent:
                 node.agent_status = agent.get("status", "unavailable")
                 node.ray_process = agent.get("ray_process")
+
+                node.supervisor = (
+                    SupervisorStatus.model_validate(agent["supervisor"])
+                    if agent.get("supervisor")
+                    else None
+                )
                 if agent.get("metrics"):
                     value, source = agent["metrics"], "agent"
             if value:

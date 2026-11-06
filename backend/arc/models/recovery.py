@@ -15,6 +15,7 @@ class RecoveryPolicy(BaseModel):
 
 
 class AgentPolicy(RecoveryPolicy):
+    revision: int = Field(default=0, ge=0)
     lease_seconds: int = Field(default=90, ge=30, le=660)
 
 
@@ -42,6 +43,7 @@ class RecoveryEvent(BaseModel):
 
 class SupervisorStatus(BaseModel):
     approved: bool = False
+    policy_revision: int = 0
     enabled: bool = False
     lease_expires: float | None = None
     state: str = "disabled"
@@ -61,3 +63,19 @@ class WorkerObservation(BaseModel):
     ray_process: bool
     verified: bool
     busy: bool
+
+
+class NodeRecoveryStatus(BaseModel):
+    node_id: WorkerID
+    enabled: bool = False
+    state: str = "disabled"
+    message: str = "Automatic recovery disabled"
+    checked_at: float | None = None
+    supervisor: SupervisorStatus | None = None
+
+
+class RecoveryStatus(BaseModel):
+    approved: bool
+    configuration: RecoveryConfiguration
+    nodes: list[NodeRecoveryStatus]
+    configuration_error: str | None = None

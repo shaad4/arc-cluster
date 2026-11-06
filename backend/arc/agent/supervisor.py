@@ -82,6 +82,9 @@ class Supervisor:
                 "manual_intervention_required",
                 "Inspect recovery ledger before configuring",
             )
+        if policy.revision < self.status.policy_revision:
+            return self.snapshot()
+        self.status.policy_revision = policy.revision
         self.policy = policy
         self.lease_deadline = (
             time.monotonic() + policy.lease_seconds if policy.enabled else 0

@@ -16,6 +16,7 @@ from arc.security import MutationGuard
 from arc.services.agents import AgentClient
 from arc.services.jobs import JobService
 from arc.services.monitor import Monitor
+from arc.services.recovery import RecoveryController
 from arc.web import mount_frontend
 
 logger = logging.getLogger(__name__)
@@ -29,13 +30,17 @@ def create_app(
     agents = AgentClient(settings)
     monitor = monitor or Monitor(settings, agents=agents)
     jobs = JobService(settings)
+    control_lock = asyncio.Lock()
+    recovery = RecoveryController(settings, monitor, agents, control_lock)
 
     @asynccontextmanager
     async def lifespan(app):
         await monitor.start()
+        await recovery.start()
         try:
             yield
         finally:
+            await recovery.close()
             await monitor.close()
             await jobs.close()
             await agents.close()
@@ -52,7 +57,8 @@ def create_app(
         allowed_hosts=["localhost", "127.0.0.1"],
     )
     application.state.agents = agents
-    application.state.control_lock = asyncio.Lock()
+    application.state.control_lock = control_lock
+    application.state.recovery = recovery
     application.state.jobs = jobs
     application.state.monitor = monitor
     application.state.settings = settings

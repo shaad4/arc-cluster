@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from arc.models.recovery import SupervisorStatus
+
 
 class Metrics(BaseModel):
     timestamp: float
@@ -39,6 +41,7 @@ class Node(BaseModel):
     source: str | None = None
     agent_status: str = "not configured"
     ray_process: bool | None = None
+    supervisor: SupervisorStatus | None = None
     control_reason: str = "Agent credentials and safety checks required"
 
 

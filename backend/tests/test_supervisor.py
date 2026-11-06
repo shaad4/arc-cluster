@@ -119,3 +119,10 @@ def test_default_disabled_expired_lease_and_manual_hold(tmp_path):
     worker.reset()
     asyncio.run(worker.tick())
     assert len(ops.calls) == 1
+
+
+def test_late_enable_cannot_override_newer_disable(tmp_path):
+    worker = engine(tmp_path, Operations())
+    worker.configure(AgentPolicy(enabled=False, revision=20))
+    worker.configure(AgentPolicy(enabled=True, revision=19))
+    assert not worker.snapshot().enabled
