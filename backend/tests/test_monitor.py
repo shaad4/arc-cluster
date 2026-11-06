@@ -88,3 +88,17 @@ def test_stale_metrics_excluded():
     assert monitor.aggregate().cpu_percent is None
     assert monitor.overview().nodes[0].stale
     assert monitor.overview().nodes[0].status == "degraded"
+
+
+def test_stale_ray_membership_is_unknown():
+    from arc.models.cluster import RayStatus
+
+    monitor = Monitor(Settings(collector_enabled=False))
+    monitor.ray = RayStatus(
+        available=True, sampled_at=time.time() - 100, error=None, total={"CPU": 20}
+    )
+    monitor.nodes[0].ray_status = "alive"
+    assert monitor.aggregate().ray_cpu_total is None
+    assert monitor.aggregate().active_nodes is None
+    assert monitor.overview().nodes[0].ray_status == "unknown"
+    assert not monitor.ray_snapshot().available

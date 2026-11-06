@@ -49,17 +49,17 @@ async def node_metrics(request: Request, node_id: str):
 @router.get("/cluster/resources", response_model=RayStatus)
 @router.get("/ray/status", response_model=RayStatus)
 async def ray_status(request: Request):
-    return monitor(request).ray
+    return monitor(request).ray_snapshot()
 
 
 @router.get("/ray/tasks", response_model=StateList)
 async def tasks(request: Request):
-    return monitor(request).ray.tasks
+    return monitor(request).ray_snapshot().tasks
 
 
 @router.get("/ray/actors", response_model=StateList)
 async def actors(request: Request):
-    return monitor(request).ray.actors
+    return monitor(request).ray_snapshot().actors
 
 
 @router.get("/cluster/events", response_model=list[Event])

@@ -187,26 +187,31 @@ class Monitor:
         while self.history and now - self.history[0].aggregate.timestamp > 3600:
             self.history.popleft()
 
+    def ray_snapshot(self):
+        if (
+            self.ray.sampled_at
+            and time.time() - self.ray.sampled_at > self.settings.stale_after
+        ):
+            return RayStatus(error="Ray observations are stale; membership is unknown")
+        return self.ray
+
     def aggregate(self):
         now = time.time()
+        ray = self.ray_snapshot()
         metrics = [
             n.metrics
             for n in self.nodes
             if n.metrics and now - n.metrics.timestamp <= self.settings.stale_after
         ]
         active = (
-            sum(n.ray_status == "alive" for n in self.nodes)
-            if self.ray.available
-            else None
+            sum(n.ray_status == "alive" for n in self.nodes) if ray.available else None
         )
         result = Aggregate(
             timestamp=now,
             reporting_nodes=len(metrics),
             active_nodes=active,
-            ray_cpu_total=self.ray.total.get("CPU") if self.ray.available else None,
-            ray_cpu_available=self.ray.free.get("CPU", 0)
-            if self.ray.available
-            else None,
+            ray_cpu_total=ray.total.get("CPU") if ray.available else None,
+            ray_cpu_available=ray.free.get("CPU", 0) if ray.available else None,
         )
         if metrics:
             cpus = sum(m.cpu_count for m in metrics)
@@ -237,11 +242,16 @@ class Monitor:
 
     def overview(self):
         now = time.time()
+        ray = self.ray_snapshot()
         nodes = [n.model_copy(deep=True) for n in self.nodes]
         for n in nodes:
             n.stale = (
                 n.last_seen is None or now - n.last_seen > self.settings.stale_after
             )
+            if not ray.available:
+                n.ray_status = "unknown"
+                if n.stale:
+                    n.machine_status = "unknown"
             if n.stale and n.status == "healthy":
                 n.status = "degraded"
         return Overview(
@@ -254,6 +264,6 @@ class Monitor:
             collector_error=self.error,
             aggregate=self.aggregate(),
             nodes=nodes,
-            ray=self.ray,
+            ray=ray,
             events=list(self.events),
         )
