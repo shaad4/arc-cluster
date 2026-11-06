@@ -1,14 +1,192 @@
-import { ArrowUpRight, Clock3 } from 'lucide-react'
-import { useApi } from '../lib/api'
-import type { History, JobList, Overview } from '../lib/types'
-import { bytes, number, pct, time } from '../lib/utils'
-import { Empty, ErrorState, Loading, Metric, PageHeading, Panel, Status, ViewLink } from '../components/common'
-import { Chart } from '../components/Chart'
-import { NodeTable } from '../components/NodeTable'
+import { ArrowUpRight, Clock3 } from "lucide-react";
+import { useApi } from "../lib/api";
+import type { History, JobList, Overview } from "../lib/types";
+import { bytes, number, pct, time } from "../lib/utils";
+import {
+  Empty,
+  ErrorState,
+  Loading,
+  Metric,
+  PageHeading,
+  Panel,
+  Status,
+  ViewLink,
+} from "../components/common";
+import { Chart } from "../components/Chart";
+import { NodeTable } from "../components/NodeTable";
 export function OverviewPage() {
- const query = useApi<Overview>('/cluster/overview'), history = useApi<History>('/metrics/history?minutes=5'), jobs = useApi<JobList>('/jobs')
- if (query.isPending) return <Loading/>
- if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()}/>
- const d = query.data, a = d.aggregate, samples = history.data?.samples.map(s => ({ timestamp: s.aggregate.timestamp, cpu: s.aggregate.cpu_percent, memory: s.aggregate.memory_percent, nodes: s.aggregate.active_nodes })) ?? []
- return <><PageHeading title="Overview" description="Your infrastructure, at a glance."><ViewLink to="/nodes">Manage nodes</ViewLink></PageHeading><div className="cluster-strip"><div><span className="cluster-mark"><ArrowUpRight size={20}/></span><div><strong>ARC cluster</strong><p>Personal infrastructure <span>·</span> Tailscale network</p></div></div><Status value={d.status}/></div>{d.collector_error && <ErrorState error={new Error(d.collector_error)}/>}<div className="metric-grid"><Metric label="Active nodes" value={<>{number(d.active_nodes)}<em> / {d.configured_nodes}</em></>} detail="Ray cluster membership"/><Metric label="Ray CPU capacity" value={<>{number(a.ray_cpu_total)}<em> vCPU</em></>} detail={`${number(a.ray_cpu_available)} CPUs available for scheduling`}/><Metric label="Physical CPU" value={pct(a.cpu_percent)} detail={`${a.reporting_nodes} of ${d.configured_nodes} nodes reporting`}/><Metric label="Physical memory" value={pct(a.memory_percent)} detail={`${bytes(a.memory_used)} of ${bytes(a.memory_total)} observed`}/></div><div className="section-meta"><span><span className="dot"/>Live observations</span><span>Last sampled <span className="mono">{time(d.updated_at)}</span> · Last 5 minutes</span></div>{history.error ? <ErrorState error={history.error}/> : <div className="chart-grid"><Chart title="CPU utilization" subtitle="Weighted by reported physical CPU count" data={samples} lines={[{ key: 'cpu', label: 'Physical CPU' }]} max={100}/><Chart title="Memory utilization" subtitle="Used memory across reporting machines" data={samples} lines={[{ key: 'memory', label: 'Physical memory' }]} max={100}/></div>}<Panel title="Nodes" subtitle="Machine observations and Ray membership are tracked independently." action={<ViewLink to="/nodes">View all nodes</ViewLink>}><NodeTable nodes={d.nodes} compact/></Panel><div className="bottom-grid"><Panel title="Recent activity" subtitle="Observed changes in your cluster"><div className="events">{d.events.length ? d.events.slice(0, 6).map((e, i) => <div className="event" key={`${e.timestamp}-${i}`}><Clock3 size={14}/><span>{e.message}</span><time className="mono">{time(e.timestamp)}</time></div>) : <Empty title="No changes observed" detail="Node status transitions will appear here."/>}</div></Panel><Panel title="Execution" subtitle="Ray Jobs submission status" action={<ViewLink to="/jobs">View jobs</ViewLink>}>{jobs.error ? <ErrorState error={jobs.error}/> : jobs.isPending ? <Loading/> : <div className="job-summary"><Metric label="Running jobs" value={jobs.data?.items.filter(j => j.type === 'SUBMISSION' && j.status === 'RUNNING').length}/><Metric label="Failed jobs" value={jobs.data?.items.filter(j => j.type === 'SUBMISSION' && j.status === 'FAILED').length}/></div>}</Panel></div>{samples.length > 0 && <Chart title="Node availability" subtitle="Live Ray members within the configured inventory" data={samples} lines={[{ key: 'nodes', label: 'Ray members' }]} unit="" max={5}/>}</>
+  const query = useApi<Overview>("/cluster/overview"),
+    history = useApi<History>("/metrics/history?minutes=5"),
+    jobs = useApi<JobList>("/jobs");
+  if (query.isPending) return <Loading />;
+  if (query.error)
+    return (
+      <ErrorState error={query.error} retry={() => void query.refetch()} />
+    );
+  const d = query.data,
+    a = d.aggregate,
+    samples =
+      history.data?.samples.map((s) => ({
+        timestamp: s.aggregate.timestamp,
+        cpu: s.aggregate.cpu_percent,
+        memory: s.aggregate.memory_percent,
+        nodes: s.aggregate.active_nodes,
+      })) ?? [];
+  return (
+    <>
+      <PageHeading
+        title="Overview"
+        description="Your infrastructure, at a glance."
+      >
+        <ViewLink to="/nodes">Manage nodes</ViewLink>
+      </PageHeading>
+      <div className="cluster-strip">
+        <div>
+          <span className="cluster-mark">
+            <ArrowUpRight size={20} />
+          </span>
+          <div>
+            <strong>ARC cluster</strong>
+            <p>
+              Personal infrastructure <span>·</span> Tailscale network
+            </p>
+          </div>
+        </div>
+        <Status value={d.status} />
+      </div>
+      {d.collector_error && <ErrorState error={new Error(d.collector_error)} />}
+      <div className="metric-grid">
+        <Metric
+          label="Active nodes"
+          value={
+            <>
+              {number(d.active_nodes)}
+              <em> / {d.configured_nodes}</em>
+            </>
+          }
+          detail="Ray cluster membership"
+        />
+        <Metric
+          label="Ray CPU capacity"
+          value={
+            <>
+              {number(a.ray_cpu_total)}
+              <em> vCPU</em>
+            </>
+          }
+          detail={`${number(a.ray_cpu_available)} CPUs available for scheduling`}
+        />
+        <Metric
+          label="Physical CPU"
+          value={pct(a.cpu_percent)}
+          detail={`${a.reporting_nodes} of ${d.configured_nodes} nodes reporting`}
+        />
+        <Metric
+          label="Physical memory"
+          value={pct(a.memory_percent)}
+          detail={`${bytes(a.memory_used)} of ${bytes(a.memory_total)} observed`}
+        />
+      </div>
+      <div className="section-meta">
+        <span>
+          <span className="dot" />
+          Live observations
+        </span>
+        <span>
+          Last sampled <span className="mono">{time(d.updated_at)}</span> · Last
+          5 minutes
+        </span>
+      </div>
+      {history.error ? (
+        <ErrorState error={history.error} />
+      ) : (
+        <div className="chart-grid">
+          <Chart
+            title="CPU utilization"
+            subtitle="Weighted by reported physical CPU count"
+            data={samples}
+            lines={[{ key: "cpu", label: "Physical CPU" }]}
+            max={100}
+          />
+          <Chart
+            title="Memory utilization"
+            subtitle="Used memory across reporting machines"
+            data={samples}
+            lines={[{ key: "memory", label: "Physical memory" }]}
+            max={100}
+          />
+        </div>
+      )}
+      <Panel
+        title="Nodes"
+        subtitle="Machine observations and Ray membership are tracked independently."
+        action={<ViewLink to="/nodes">View all nodes</ViewLink>}
+      >
+        <NodeTable nodes={d.nodes} compact />
+      </Panel>
+      <div className="bottom-grid">
+        <Panel
+          title="Recent activity"
+          subtitle="Observed changes in your cluster"
+        >
+          <div className="events">
+            {d.events.length ? (
+              d.events.slice(0, 6).map((e, i) => (
+                <div className="event" key={`${e.timestamp}-${i}`}>
+                  <Clock3 size={14} />
+                  <span>{e.message}</span>
+                  <time className="mono">{time(e.timestamp)}</time>
+                </div>
+              ))
+            ) : (
+              <Empty
+                title="No changes observed"
+                detail="Node status transitions will appear here."
+              />
+            )}
+          </div>
+        </Panel>
+        <Panel
+          title="Execution"
+          subtitle="Ray Jobs submission status"
+          action={<ViewLink to="/jobs">View jobs</ViewLink>}
+        >
+          {jobs.error ? (
+            <ErrorState error={jobs.error} />
+          ) : jobs.isPending ? (
+            <Loading />
+          ) : (
+            <div className="job-summary">
+              <Metric
+                label="Running jobs"
+                value={
+                  jobs.data?.items.filter(
+                    (j) => j.type === "SUBMISSION" && j.status === "RUNNING",
+                  ).length
+                }
+              />
+              <Metric
+                label="Failed jobs"
+                value={
+                  jobs.data?.items.filter(
+                    (j) => j.type === "SUBMISSION" && j.status === "FAILED",
+                  ).length
+                }
+              />
+            </div>
+          )}
+        </Panel>
+      </div>
+      {samples.length > 0 && (
+        <Chart
+          title="Node availability"
+          subtitle="Live Ray members within the configured inventory"
+          data={samples}
+          lines={[{ key: "nodes", label: "Ray members" }]}
+          unit=""
+          max={5}
+        />
+      )}
+    </>
+  );
 }

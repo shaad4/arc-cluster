@@ -1,6 +1,96 @@
-import { Link } from 'react-router'
-import { ArrowUpRight, Server } from 'lucide-react'
-import type { Node } from '../lib/types'
-import { bytes, duration, pct, time } from '../lib/utils'
-import { Status } from './common'
-export function NodeTable({ nodes, compact = false }: { nodes: Node[]; compact?: boolean }) { return <div className="table-scroll"><table><thead><tr><th>Node</th><th>Machine</th><th>Ray membership</th><th>CPU</th><th>Memory</th>{!compact && <th>Disk</th>}<th>Uptime</th><th>Last seen</th><th><span className="sr-only">Details</span></th></tr></thead><tbody>{nodes.map(node => { const m = node.stale ? null : node.metrics; return <tr key={node.id}><td><Link className="node-name" to={`/nodes/${node.id}`}><span className="node-icon"><Server size={15}/></span><span><strong>{node.name}<span className="role">{node.role}</span></strong><small className="mono">{node.ip}</small></span></Link></td><td><Status value={node.machine_status}/></td><td><Status value={node.ray_status}/></td><td className="mono">{pct(m?.cpu_percent)}{m && <div className="usage"><i style={{ width: `${m.cpu_percent}%` }}/></div>}</td><td className="mono">{pct(m?.memory_percent)}<small>{m ? `${bytes(m.memory_used)} / ${bytes(m.memory_total)}` : node.stale && node.metrics ? 'Stale sample' : 'Unavailable'}</small></td>{!compact && <td className="mono">{pct(m?.disk_percent)}</td>}<td className="mono">{duration(m?.uptime)}</td><td className="mono muted">{time(node.last_seen)}</td><td><Link aria-label={`View ${node.name}`} className="icon-link" to={`/nodes/${node.id}`}><ArrowUpRight size={16}/></Link></td></tr>})}</tbody></table>{nodes.length === 0 && <p className="table-empty">No nodes match these filters.</p>}</div> }
+import { Link } from "react-router";
+import { ArrowUpRight, Server } from "lucide-react";
+import type { Node } from "../lib/types";
+import { bytes, duration, pct, time } from "../lib/utils";
+import { Status } from "./common";
+export function NodeTable({
+  nodes,
+  compact = false,
+}: {
+  nodes: Node[];
+  compact?: boolean;
+}) {
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Machine</th>
+            <th>Ray membership</th>
+            <th>CPU</th>
+            <th>Memory</th>
+            {!compact && <th>Disk</th>}
+            <th>Uptime</th>
+            <th>Last seen</th>
+            <th>
+              <span className="sr-only">Details</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {nodes.map((node) => {
+            const m = node.stale ? null : node.metrics;
+            return (
+              <tr key={node.id}>
+                <td>
+                  <Link className="node-name" to={`/nodes/${node.id}`}>
+                    <span className="node-icon">
+                      <Server size={15} />
+                    </span>
+                    <span>
+                      <strong>
+                        {node.name}
+                        <span className="role">{node.role}</span>
+                      </strong>
+                      <small className="mono">{node.ip}</small>
+                    </span>
+                  </Link>
+                </td>
+                <td>
+                  <Status value={node.machine_status} />
+                </td>
+                <td>
+                  <Status value={node.ray_status} />
+                </td>
+                <td className="mono">
+                  {pct(m?.cpu_percent)}
+                  {m && (
+                    <div className="usage">
+                      <i style={{ width: `${m.cpu_percent}%` }} />
+                    </div>
+                  )}
+                </td>
+                <td className="mono">
+                  {pct(m?.memory_percent)}
+                  <small>
+                    {m
+                      ? `${bytes(m.memory_used)} / ${bytes(m.memory_total)}`
+                      : node.stale && node.metrics
+                        ? "Stale sample"
+                        : "Unavailable"}
+                  </small>
+                </td>
+                {!compact && <td className="mono">{pct(m?.disk_percent)}</td>}
+                <td className="mono">{duration(m?.uptime)}</td>
+                <td className="mono muted">{time(node.last_seen)}</td>
+                <td>
+                  <Link
+                    aria-label={`View ${node.name}`}
+                    className="icon-link"
+                    to={`/nodes/${node.id}`}
+                  >
+                    <ArrowUpRight size={16} />
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {nodes.length === 0 && (
+        <p className="table-empty">No nodes match these filters.</p>
+      )}
+    </div>
+  );
+}

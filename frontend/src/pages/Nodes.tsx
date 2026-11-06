@@ -1,34 +1,330 @@
-import { useState } from 'react'
-import { useParams } from 'react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Search, ShieldCheck } from 'lucide-react'
-import { api, useApi } from '../lib/api'
-import type { History, LogData, Node, Preflight } from '../lib/types'
-import { bytes, duration, pct, time } from '../lib/utils'
-import { Empty, ErrorState, Loading, Metric, PageHeading, Panel, Status, ViewLink } from '../components/common'
-import { NodeTable } from '../components/NodeTable'
-import { Chart } from '../components/Chart'
-import { Button } from '../components/ui/button'
-import { ConfirmDialog } from '../components/ui/dialog'
+import { useState } from "react";
+import { useParams } from "react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { api, useApi } from "../lib/api";
+import type { History, LogData, Node, Preflight } from "../lib/types";
+import { bytes, duration, pct, time } from "../lib/utils";
+import {
+  Empty,
+  ErrorState,
+  Loading,
+  Metric,
+  PageHeading,
+  Panel,
+  Status,
+  ViewLink,
+} from "../components/common";
+import { NodeTable } from "../components/NodeTable";
+import { Chart } from "../components/Chart";
+import { Button } from "../components/ui/button";
+import { ConfirmDialog } from "../components/ui/dialog";
 export function NodesPage() {
- const query = useApi<Node[]>('/cluster/nodes'), [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [sort, setSort] = useState('name')
- if (query.isPending) return <Loading/>
- if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()}/>
- const nodes = query.data.filter(n => `${n.name} ${n.ip}`.includes(search.toLowerCase()) && (filter === 'all' || n.status === filter || n.ray_status === filter)).sort((a, b) => sort === 'cpu' ? (b.metrics?.cpu_percent ?? -1) - (a.metrics?.cpu_percent ?? -1) : sort === 'memory' ? (b.metrics?.memory_percent ?? -1) - (a.metrics?.memory_percent ?? -1) : a.name.localeCompare(b.name))
- return <><PageHeading title="Nodes" description="Every machine. Independent reachability and Ray membership."><Button onClick={() => void query.refetch()}><RefreshCw size={14}/>Refresh</Button></PageHeading><div className="toolbar"><label className="search"><Search size={14}/><input aria-label="Search nodes" placeholder="Search by name or IP address…" value={search} onChange={e => setSearch(e.target.value)}/></label><select aria-label="Filter nodes" value={filter} onChange={e => setFilter(e.target.value)}>{['all', 'healthy', 'degraded', 'unknown', 'alive', 'dead'].map(s => <option key={s} value={s}>{s === 'all' ? 'All states' : s}</option>)}</select><select aria-label="Sort nodes" value={sort} onChange={e => setSort(e.target.value)}><option value="name">Name</option><option value="cpu">CPU usage</option><option value="memory">Memory usage</option></select><span className="spacer"/><span className="muted">{nodes.length} nodes</span></div><Panel title="Configured inventory" subtitle="A disconnected Ray worker is not necessarily an offline machine."><NodeTable nodes={nodes}/></Panel><div className="notice">Unavailable measurements are shown as —. Install an authenticated node agent to observe a machine independently of Ray and enable safety-checked controls.</div></>
+  const query = useApi<Node[]>("/cluster/nodes"),
+    [search, setSearch] = useState(""),
+    [filter, setFilter] = useState("all"),
+    [sort, setSort] = useState("name");
+  if (query.isPending) return <Loading />;
+  if (query.error)
+    return (
+      <ErrorState error={query.error} retry={() => void query.refetch()} />
+    );
+  const nodes = query.data
+    .filter(
+      (n) =>
+        `${n.name} ${n.ip}`.includes(search.toLowerCase()) &&
+        (filter === "all" || n.status === filter || n.ray_status === filter),
+    )
+    .sort((a, b) =>
+      sort === "cpu"
+        ? (b.metrics?.cpu_percent ?? -1) - (a.metrics?.cpu_percent ?? -1)
+        : sort === "memory"
+          ? (b.metrics?.memory_percent ?? -1) -
+            (a.metrics?.memory_percent ?? -1)
+          : a.name.localeCompare(b.name),
+    );
+  return (
+    <>
+      <PageHeading
+        title="Nodes"
+        description="Every machine. Independent reachability and Ray membership."
+      >
+        <Button onClick={() => void query.refetch()}>
+          <RefreshCw size={14} />
+          Refresh
+        </Button>
+      </PageHeading>
+      <div className="toolbar">
+        <label className="search">
+          <Search size={14} />
+          <input
+            aria-label="Search nodes"
+            placeholder="Search by name or IP address…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <select
+          aria-label="Filter nodes"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          {["all", "healthy", "degraded", "unknown", "alive", "dead"].map(
+            (s) => (
+              <option key={s} value={s}>
+                {s === "all" ? "All states" : s}
+              </option>
+            ),
+          )}
+        </select>
+        <select
+          aria-label="Sort nodes"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option value="name">Name</option>
+          <option value="cpu">CPU usage</option>
+          <option value="memory">Memory usage</option>
+        </select>
+        <span className="spacer" />
+        <span className="muted">{nodes.length} nodes</span>
+      </div>
+      <Panel
+        title="Configured inventory"
+        subtitle="A disconnected Ray worker is not necessarily an offline machine."
+      >
+        <NodeTable nodes={nodes} />
+      </Panel>
+      <div className="notice">
+        Unavailable measurements are shown as —. Install an authenticated node
+        agent to observe a machine independently of Ray and enable
+        safety-checked controls.
+      </div>
+    </>
+  );
 }
 export function NodeControls({ node }: { node: Node }) {
- const [action, setAction] = useState<string | null>(null), client = useQueryClient()
- const preflight = useApi<Preflight>(`/nodes/${node.id}/preflight`, false)
- const mutation = useMutation({ mutationFn: (operation: string) => api<{ status: string; message: string }>(`/nodes/${node.id}/${operation === 'recover' ? 'recover' : `ray/${operation}`}`, { method: 'POST', body: JSON.stringify({ confirmed: true }) }), onSuccess: () => { setAction(null); void client.invalidateQueries() } })
- const refresh = useMutation({ mutationFn: () => api(`/nodes/${node.id}/refresh`, { method: 'POST' }), onSuccess: () => void client.invalidateQueries() })
- const allowed = node.role !== 'head' && preflight.data?.allowed
- return <Panel title="Worker controls" subtitle="Explicit confirmation and fresh safety checks are required."><div className="control-content"><p>{preflight.data?.reason ?? node.control_reason}</p><div className="actions"><Button onClick={() => void preflight.refetch()} disabled={node.role === 'head' || preflight.isFetching}><ShieldCheck size={14}/>{preflight.isFetching ? 'Checking…' : 'Check safety'}</Button><Button onClick={() => refresh.mutate()} disabled={refresh.isPending}><RefreshCw size={14}/>Refresh metrics</Button>{['start', 'stop', 'recover'].map(op => <Button key={op} disabled={!allowed || mutation.isPending || (op !== 'stop' && !!preflight.data?.member) || (op === 'start' && !!preflight.data?.ray_process)} onClick={() => setAction(op)}>{op === 'recover' ? 'Recover worker' : `${op[0].toUpperCase()}${op.slice(1)} worker`}</Button>)}</div>{preflight.error && <ErrorState error={preflight.error}/>} {mutation.error && <ErrorState error={mutation.error}/>} {refresh.error && <ErrorState error={refresh.error}/>} {mutation.data && <p role="status">{mutation.data.status}: {mutation.data.message}</p>}</div><ConfirmDialog open={action !== null} onOpenChange={open => { if (!open && !mutation.isPending) setAction(null) }} title={`${action ?? 'Manage'} ${node.name}?`} description="This changes the worker's Ray process. ARC will recheck workloads and membership before executing the allowlisted command. Never proceed while important workloads are running."><div className="actions"><Button onClick={() => setAction(null)} disabled={mutation.isPending}>Cancel</Button><Button variant="destructive" disabled={mutation.isPending} onClick={() => action && mutation.mutate(action)}>{mutation.isPending ? 'Verifying operation…' : 'Confirm operation'}</Button></div>{mutation.error && <ErrorState error={mutation.error}/>}</ConfirmDialog></Panel>
+  const [action, setAction] = useState<string | null>(null),
+    client = useQueryClient();
+  const preflight = useApi<Preflight>(`/nodes/${node.id}/preflight`, false);
+  const mutation = useMutation({
+    mutationFn: (operation: string) =>
+      api<{ status: string; message: string }>(
+        `/nodes/${node.id}/${operation === "recover" ? "recover" : `ray/${operation}`}`,
+        { method: "POST", body: JSON.stringify({ confirmed: true }) },
+      ),
+    onSuccess: () => {
+      setAction(null);
+      void client.invalidateQueries();
+    },
+  });
+  const refresh = useMutation({
+    mutationFn: () => api(`/nodes/${node.id}/refresh`, { method: "POST" }),
+    onSuccess: () => void client.invalidateQueries(),
+  });
+  const allowed = node.role !== "head" && preflight.data?.allowed;
+  return (
+    <Panel
+      title="Worker controls"
+      subtitle="Explicit confirmation and fresh safety checks are required."
+    >
+      <div className="control-content">
+        <p>{preflight.data?.reason ?? node.control_reason}</p>
+        <div className="actions">
+          <Button
+            onClick={() => void preflight.refetch()}
+            disabled={node.role === "head" || preflight.isFetching}
+          >
+            <ShieldCheck size={14} />
+            {preflight.isFetching ? "Checking…" : "Check safety"}
+          </Button>
+          <Button onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+            <RefreshCw size={14} />
+            Refresh metrics
+          </Button>
+          {["start", "stop", "recover"].map((op) => (
+            <Button
+              key={op}
+              disabled={
+                !allowed ||
+                mutation.isPending ||
+                (op !== "stop" && !!preflight.data?.member) ||
+                (op === "start" && !!preflight.data?.ray_process)
+              }
+              onClick={() => setAction(op)}
+            >
+              {op === "recover"
+                ? "Recover worker"
+                : `${op[0].toUpperCase()}${op.slice(1)} worker`}
+            </Button>
+          ))}
+        </div>
+        {preflight.error && <ErrorState error={preflight.error} />}{" "}
+        {mutation.error && <ErrorState error={mutation.error} />}{" "}
+        {refresh.error && <ErrorState error={refresh.error} />}{" "}
+        {mutation.data && (
+          <p role="status">
+            {mutation.data.status}: {mutation.data.message}
+          </p>
+        )}
+      </div>
+      <ConfirmDialog
+        open={action !== null}
+        onOpenChange={(open) => {
+          if (!open && !mutation.isPending) setAction(null);
+        }}
+        title={`${action ?? "Manage"} ${node.name}?`}
+        description="This changes the worker's Ray process. ARC will recheck workloads and membership before executing the allowlisted command. Never proceed while important workloads are running."
+      >
+        <div className="actions">
+          <Button onClick={() => setAction(null)} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={mutation.isPending}
+            onClick={() => action && mutation.mutate(action)}
+          >
+            {mutation.isPending ? "Verifying operation…" : "Confirm operation"}
+          </Button>
+        </div>
+        {mutation.error && <ErrorState error={mutation.error} />}
+      </ConfirmDialog>
+    </Panel>
+  );
 }
 export function NodeDetailsPage() {
- const { nodeId = '' } = useParams(), query = useApi<Node>(`/nodes/${encodeURIComponent(nodeId)}`), history = useApi<History>('/metrics/history?minutes=15'), logs = useApi<LogData>(`/nodes/${encodeURIComponent(nodeId)}/logs`)
- if (query.isPending) return <Loading/>
- if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()}/>
- const node = query.data, m = node.stale ? null : node.metrics, samples = history.data?.samples.map(s => ({ timestamp: s.aggregate.timestamp, cpu: s.nodes[node.id]?.cpu_percent ?? null, memory: s.nodes[node.id]?.memory_percent ?? null, sent: s.nodes[node.id]?.net_sent_rate == null ? null : s.nodes[node.id].net_sent_rate! / 1024, received: s.nodes[node.id]?.net_recv_rate == null ? null : s.nodes[node.id].net_recv_rate! / 1024 })) ?? []
- return <><PageHeading title={node.name} description={`${node.role === 'head' ? 'Ray head + worker' : 'Ray worker'} · ${node.ip}`}><ViewLink to="/nodes">All nodes</ViewLink><Status value={node.status}/></PageHeading>{node.stale && <div className="notice">No fresh machine metrics. Last successful observation: {time(node.last_seen)}. Ray membership is tracked separately.</div>}<div className="metric-grid"><Metric label="CPU utilization" value={pct(m?.cpu_percent)} detail={`${m?.cpu_count ?? '—'} physical CPUs`}/><Metric label="Memory" value={pct(m?.memory_percent)} detail={`${bytes(m?.memory_used)} / ${bytes(m?.memory_total)}`}/><Metric label="Persistent storage" value={pct(m?.disk_percent)} detail={`${bytes(m?.disk_used)} / ${bytes(m?.disk_total)}`}/><Metric label="Uptime" value={duration(m?.uptime)} detail={m?.hostname ?? 'Hostname unavailable'}/></div><div className="detail-grid"><Panel title="Machine identity"><dl className="definition">{[['Hostname', m?.hostname ?? 'Unavailable'], ['Tailscale IP', node.ip], ['Ray node ID', node.ray_id ?? 'Unavailable'], ['Metric source', node.source ?? 'Unavailable'], ['Agent', node.agent_status]].map(([key, value]) => <div key={key}><dt>{key}</dt><dd className="mono">{value}</dd></div>)}<div><dt>Ray membership</dt><dd><Status value={node.ray_status}/></dd></div></dl></Panel><NodeControls key={node.id} node={node}/></div>{history.error ? <ErrorState error={history.error}/> : <><div className="chart-grid"><Chart title="Physical CPU" data={samples} lines={[{ key: 'cpu', label: 'CPU' }]} max={100}/><Chart title="Physical memory" data={samples} lines={[{ key: 'memory', label: 'Memory' }]} max={100}/></div><Chart title="Network throughput" subtitle="Derived from successive interface-counter samples" data={samples} lines={[{ key: 'sent', label: 'Sent' }, { key: 'received', label: 'Received' }]} unit=" KiB/s"/></>}<Panel title="Recent worker logs" action={<ViewLink to={`/logs?node=${node.id}`}>Open logs</ViewLink>}>{logs.error ? <ErrorState error={logs.error}/> : logs.isPending ? <Loading/> : logs.data.text ? <pre className="log-window">{logs.data.text}</pre> : <Empty title="No recent log lines"/>}</Panel></>
+  const { nodeId = "" } = useParams(),
+    query = useApi<Node>(`/nodes/${encodeURIComponent(nodeId)}`),
+    history = useApi<History>("/metrics/history?minutes=15"),
+    logs = useApi<LogData>(`/nodes/${encodeURIComponent(nodeId)}/logs`);
+  if (query.isPending) return <Loading />;
+  if (query.error)
+    return (
+      <ErrorState error={query.error} retry={() => void query.refetch()} />
+    );
+  const node = query.data,
+    m = node.stale ? null : node.metrics,
+    samples =
+      history.data?.samples.map((s) => ({
+        timestamp: s.aggregate.timestamp,
+        cpu: s.nodes[node.id]?.cpu_percent ?? null,
+        memory: s.nodes[node.id]?.memory_percent ?? null,
+        sent:
+          s.nodes[node.id]?.net_sent_rate == null
+            ? null
+            : s.nodes[node.id].net_sent_rate! / 1024,
+        received:
+          s.nodes[node.id]?.net_recv_rate == null
+            ? null
+            : s.nodes[node.id].net_recv_rate! / 1024,
+      })) ?? [];
+  return (
+    <>
+      <PageHeading
+        title={node.name}
+        description={`${node.role === "head" ? "Ray head + worker" : "Ray worker"} · ${node.ip}`}
+      >
+        <ViewLink to="/nodes">All nodes</ViewLink>
+        <Status value={node.status} />
+      </PageHeading>
+      {node.stale && (
+        <div className="notice">
+          No fresh machine metrics. Last successful observation:{" "}
+          {time(node.last_seen)}. Ray membership is tracked separately.
+        </div>
+      )}
+      <div className="metric-grid">
+        <Metric
+          label="CPU utilization"
+          value={pct(m?.cpu_percent)}
+          detail={`${m?.cpu_count ?? "—"} physical CPUs`}
+        />
+        <Metric
+          label="Memory"
+          value={pct(m?.memory_percent)}
+          detail={`${bytes(m?.memory_used)} / ${bytes(m?.memory_total)}`}
+        />
+        <Metric
+          label="Persistent storage"
+          value={pct(m?.disk_percent)}
+          detail={`${bytes(m?.disk_used)} / ${bytes(m?.disk_total)}`}
+        />
+        <Metric
+          label="Uptime"
+          value={duration(m?.uptime)}
+          detail={m?.hostname ?? "Hostname unavailable"}
+        />
+      </div>
+      <div className="detail-grid">
+        <Panel title="Machine identity">
+          <dl className="definition">
+            {[
+              ["Hostname", m?.hostname ?? "Unavailable"],
+              ["Tailscale IP", node.ip],
+              ["Ray node ID", node.ray_id ?? "Unavailable"],
+              ["Metric source", node.source ?? "Unavailable"],
+              ["Agent", node.agent_status],
+            ].map(([key, value]) => (
+              <div key={key}>
+                <dt>{key}</dt>
+                <dd className="mono">{value}</dd>
+              </div>
+            ))}
+            <div>
+              <dt>Ray membership</dt>
+              <dd>
+                <Status value={node.ray_status} />
+              </dd>
+            </div>
+          </dl>
+        </Panel>
+        <NodeControls key={node.id} node={node} />
+      </div>
+      {history.error ? (
+        <ErrorState error={history.error} />
+      ) : (
+        <>
+          <div className="chart-grid">
+            <Chart
+              title="Physical CPU"
+              data={samples}
+              lines={[{ key: "cpu", label: "CPU" }]}
+              max={100}
+            />
+            <Chart
+              title="Physical memory"
+              data={samples}
+              lines={[{ key: "memory", label: "Memory" }]}
+              max={100}
+            />
+          </div>
+          <Chart
+            title="Network throughput"
+            subtitle="Derived from successive interface-counter samples"
+            data={samples}
+            lines={[
+              { key: "sent", label: "Sent" },
+              { key: "received", label: "Received" },
+            ]}
+            unit=" KiB/s"
+          />
+        </>
+      )}
+      <Panel
+        title="Recent worker logs"
+        action={<ViewLink to={`/logs?node=${node.id}`}>Open logs</ViewLink>}
+      >
+        {logs.error ? (
+          <ErrorState error={logs.error} />
+        ) : logs.isPending ? (
+          <Loading />
+        ) : logs.data.text ? (
+          <pre className="log-window">{logs.data.text}</pre>
+        ) : (
+          <Empty title="No recent log lines" />
+        )}
+      </Panel>
+    </>
+  );
 }

@@ -1,20 +1,230 @@
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Play, RefreshCw } from 'lucide-react'
-import { api, useApi } from '../lib/api'
-import type { Job, JobList, LogData, Settings } from '../lib/types'
-import { duration } from '../lib/utils'
-import { Empty, ErrorState, Loading, PageHeading, Panel, Status } from '../components/common'
-import { Button } from '../components/ui/button'
-import { ConfirmDialog } from '../components/ui/dialog'
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Play, RefreshCw } from "lucide-react";
+import { api, useApi } from "../lib/api";
+import type { Job, JobList, LogData, Settings } from "../lib/types";
+import { duration } from "../lib/utils";
+import {
+  Empty,
+  ErrorState,
+  Loading,
+  PageHeading,
+  Panel,
+  Status,
+} from "../components/common";
+import { Button } from "../components/ui/button";
+import { ConfirmDialog } from "../components/ui/dialog";
 function JobDetails({ job }: { job: Job }) {
- const logs = useApi<LogData>(`/jobs/${encodeURIComponent(job.id)}/logs`, !!job.submission_id)
- return <Panel title="Job details" subtitle={job.id}><dl className="definition"><div><dt>Entry point</dt><dd className="mono">{job.entrypoint || 'Unavailable'}</dd></div><div><dt>Message / failure reason</dt><dd>{job.message || 'No failure reported'}</dd></div><div><dt>Type</dt><dd>{job.type}</dd></div></dl>{!job.submission_id ? <Empty title="Driver logs are not available through Jobs API" detail="Use node logs for driver-launched execution."/> : logs.isPending ? <Loading/> : logs.error ? <ErrorState error={logs.error}/> : logs.data?.text ? <pre className="log-window">{logs.data.text}</pre> : <Empty title="No job logs yet"/>}</Panel>
+  const logs = useApi<LogData>(
+    `/jobs/${encodeURIComponent(job.id)}/logs`,
+    !!job.submission_id,
+  );
+  return (
+    <Panel title="Job details" subtitle={job.id}>
+      <dl className="definition">
+        <div>
+          <dt>Entry point</dt>
+          <dd className="mono">{job.entrypoint || "Unavailable"}</dd>
+        </div>
+        <div>
+          <dt>Message / failure reason</dt>
+          <dd>{job.message || "No failure reported"}</dd>
+        </div>
+        <div>
+          <dt>Type</dt>
+          <dd>{job.type}</dd>
+        </div>
+      </dl>
+      {!job.submission_id ? (
+        <Empty
+          title="Driver logs are not available through Jobs API"
+          detail="Use node logs for driver-launched execution."
+        />
+      ) : logs.isPending ? (
+        <Loading />
+      ) : logs.error ? (
+        <ErrorState error={logs.error} />
+      ) : logs.data?.text ? (
+        <pre className="log-window">{logs.data.text}</pre>
+      ) : (
+        <Empty title="No job logs yet" />
+      )}
+    </Panel>
+  );
 }
 export function JobsPage() {
- const query = useApi<JobList>('/jobs'), settings = useApi<Settings>('/settings'), client = useQueryClient()
- const [filter, setFilter] = useState('ALL'), [selected, setSelected] = useState<string | null>(null), [open, setOpen] = useState(false), [count, setCount] = useState(8)
- const submit = useMutation({ mutationFn: () => api<{ submission_id: string }>('/workloads/submit', { method: 'POST', body: JSON.stringify({ workload: 'distributed-square', count, confirmed: true }) }), onSuccess: data => { setSelected(data.submission_id); setOpen(false); void client.invalidateQueries({ queryKey: ['/jobs'] }) } })
- const jobs = query.data?.items.filter(j => filter === 'ALL' || j.status === filter) ?? [], job = query.data?.items.find(j => j.id === selected)
- return <><PageHeading title="Jobs" description="Inspect Ray Jobs submissions and driver execution."><Button onClick={() => void query.refetch()} aria-label="Refresh jobs"><RefreshCw size={14}/></Button><Button variant="default" disabled={!settings.data?.approved_workload} title={settings.data?.approved_workload ? 'Submit approved example' : 'Enable the approved workload in server configuration first'} onClick={() => setOpen(true)}><Play size={13}/>Run workload</Button></PageHeading><div className="tabs">{['ALL', 'RUNNING', 'PENDING', 'SUCCEEDED', 'FAILED', 'STOPPED'].map(state => <button key={state} className={filter === state ? 'active' : ''} onClick={() => setFilter(state)}>{state === 'ALL' ? 'All jobs' : state.toLowerCase()}</button>)}</div>{query.isPending ? <Loading/> : query.error ? <ErrorState error={query.error} retry={() => void query.refetch()}/> : <Panel title="Execution history" subtitle="Jobs are distinct from individual Ray tasks and actors.">{jobs.length ? <div className="table-scroll"><table><thead><tr><th>Job / name</th><th>Status</th><th>Submitted</th><th>Duration</th><th>Type</th><th>Details</th></tr></thead><tbody>{jobs.map(j => <tr key={j.id}><td><strong>{j.name}</strong><small className="mono">{j.id}</small></td><td><Status value={j.status}/></td><td className="mono">{j.start_time ? new Date(j.start_time).toLocaleString() : '—'}</td><td className="mono">{duration(j.start_time ? ((j.end_time || query.dataUpdatedAt) - j.start_time) / 1000 : null)}</td><td>{j.type}</td><td><Button size="sm" onClick={() => setSelected(j.id)}>Inspect</Button></td></tr>)}</tbody></table></div> : <Empty title="No matching jobs" detail="Existing Ray Jobs will appear here. ARC never runs sample workloads automatically."/>}</Panel>}{job && <JobDetails key={job.id} job={job}/>}<div className="notice">Only the server-approved distributed-square workload can be submitted. It computes up to 100 small tasks. Arbitrary commands and browser-defined entry points are not accepted.</div><ConfirmDialog open={open} onOpenChange={setOpen} title="Run approved workload?" description="This submits the distributed-square example to Ray. It consumes cluster resources and should only run when you intend to test distributed execution."><label htmlFor="workload-count">Number of tasks (1–100)</label><input id="workload-count" type="number" min={1} max={100} value={count} onChange={e => setCount(Number(e.target.value))}/><div className="actions"><Button onClick={() => setOpen(false)}>Cancel</Button><Button variant="default" disabled={submit.isPending || !Number.isInteger(count) || count < 1 || count > 100} onClick={() => submit.mutate()}>{submit.isPending ? 'Submitting…' : 'Confirm submission'}</Button></div>{submit.error && <ErrorState error={submit.error}/>}</ConfirmDialog>{submit.data && <div className="notice" role="status">Submitted {submit.data.submission_id}</div>}</>
+  const query = useApi<JobList>("/jobs"),
+    settings = useApi<Settings>("/settings"),
+    client = useQueryClient();
+  const [filter, setFilter] = useState("ALL"),
+    [selected, setSelected] = useState<string | null>(null),
+    [open, setOpen] = useState(false),
+    [count, setCount] = useState(8);
+  const submit = useMutation({
+    mutationFn: () =>
+      api<{ submission_id: string }>("/workloads/submit", {
+        method: "POST",
+        body: JSON.stringify({
+          workload: "distributed-square",
+          count,
+          confirmed: true,
+        }),
+      }),
+    onSuccess: (data) => {
+      setSelected(data.submission_id);
+      setOpen(false);
+      void client.invalidateQueries({ queryKey: ["/jobs"] });
+    },
+  });
+  const jobs =
+      query.data?.items.filter(
+        (j) => filter === "ALL" || j.status === filter,
+      ) ?? [],
+    job = query.data?.items.find((j) => j.id === selected);
+  return (
+    <>
+      <PageHeading
+        title="Jobs"
+        description="Inspect Ray Jobs submissions and driver execution."
+      >
+        <Button onClick={() => void query.refetch()} aria-label="Refresh jobs">
+          <RefreshCw size={14} />
+        </Button>
+        <Button
+          variant="default"
+          disabled={!settings.data?.approved_workload}
+          title={
+            settings.data?.approved_workload
+              ? "Submit approved example"
+              : "Enable the approved workload in server configuration first"
+          }
+          onClick={() => setOpen(true)}
+        >
+          <Play size={13} />
+          Run workload
+        </Button>
+      </PageHeading>
+      <div className="tabs">
+        {["ALL", "RUNNING", "PENDING", "SUCCEEDED", "FAILED", "STOPPED"].map(
+          (state) => (
+            <button
+              key={state}
+              className={filter === state ? "active" : ""}
+              onClick={() => setFilter(state)}
+            >
+              {state === "ALL" ? "All jobs" : state.toLowerCase()}
+            </button>
+          ),
+        )}
+      </div>
+      {query.isPending ? (
+        <Loading />
+      ) : query.error ? (
+        <ErrorState error={query.error} retry={() => void query.refetch()} />
+      ) : (
+        <Panel
+          title="Execution history"
+          subtitle="Jobs are distinct from individual Ray tasks and actors."
+        >
+          {jobs.length ? (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Job / name</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Duration</th>
+                    <th>Type</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((j) => (
+                    <tr key={j.id}>
+                      <td>
+                        <strong>{j.name}</strong>
+                        <small className="mono">{j.id}</small>
+                      </td>
+                      <td>
+                        <Status value={j.status} />
+                      </td>
+                      <td className="mono">
+                        {j.start_time
+                          ? new Date(j.start_time).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td className="mono">
+                        {duration(
+                          j.start_time
+                            ? ((j.end_time || query.dataUpdatedAt) -
+                                j.start_time) /
+                                1000
+                            : null,
+                        )}
+                      </td>
+                      <td>{j.type}</td>
+                      <td>
+                        <Button size="sm" onClick={() => setSelected(j.id)}>
+                          Inspect
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty
+              title="No matching jobs"
+              detail="Existing Ray Jobs will appear here. ARC never runs sample workloads automatically."
+            />
+          )}
+        </Panel>
+      )}
+      {job && <JobDetails key={job.id} job={job} />}
+      <div className="notice">
+        Only the server-approved distributed-square workload can be submitted.
+        It computes up to 100 small tasks. Arbitrary commands and
+        browser-defined entry points are not accepted.
+      </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Run approved workload?"
+        description="This submits the distributed-square example to Ray. It consumes cluster resources and should only run when you intend to test distributed execution."
+      >
+        <label htmlFor="workload-count">Number of tasks (1–100)</label>
+        <input
+          id="workload-count"
+          type="number"
+          min={1}
+          max={100}
+          value={count}
+          onChange={(e) => setCount(Number(e.target.value))}
+        />
+        <div className="actions">
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            variant="default"
+            disabled={
+              submit.isPending ||
+              !Number.isInteger(count) ||
+              count < 1 ||
+              count > 100
+            }
+            onClick={() => submit.mutate()}
+          >
+            {submit.isPending ? "Submitting…" : "Confirm submission"}
+          </Button>
+        </div>
+        {submit.error && <ErrorState error={submit.error} />}
+      </ConfirmDialog>
+      {submit.data && (
+        <div className="notice" role="status">
+          Submitted {submit.data.submission_id}
+        </div>
+      )}
+    </>
+  );
 }
