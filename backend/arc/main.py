@@ -1,5 +1,6 @@
 """Application assembly and unexpected-error boundary."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,7 @@ from arc.api.router import router
 from arc.config import APP_NAME, APP_VERSION, Settings
 from arc.models.error import ErrorResponse
 from arc.security import MutationGuard
+from arc.services.agents import AgentClient
 from arc.services.jobs import JobService
 from arc.services.monitor import Monitor
 
@@ -21,7 +23,8 @@ def create_app(
     settings: Settings | None = None, monitor: Monitor | None = None
 ) -> FastAPI:
     settings = settings or Settings()
-    monitor = monitor or Monitor(settings)
+    agents = AgentClient(settings)
+    monitor = monitor or Monitor(settings, agents=agents)
     jobs = JobService(settings)
 
     @asynccontextmanager
@@ -44,6 +47,8 @@ def create_app(
         TrustedHostMiddleware,
         allowed_hosts=["localhost", "127.0.0.1", "testserver", "test"],
     )
+    application.state.agents = agents
+    application.state.control_lock = asyncio.Lock()
     application.state.jobs = jobs
     application.state.monitor = monitor
     application.state.settings = settings
