@@ -1127,3 +1127,5 @@ input::placeholder {
     transition: none !important;
   }
 }
+/* Keep absolutely positioned accessible table labels within the scroller. */
+.table-scroll { position: relative; }

@@ -1,0 +1,35 @@
+import { expect, test } from '@playwright/test'
+test('all pages, node details, and private controls work against live ARC', async ({ page }) => {
+ const errors: string[] = []
+ page.on('pageerror', error => errors.push(error.message))
+ await page.goto('/overview')
+ await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
+ await expect(page.getByRole('link', { name: 'View box1', exact: true })).toBeVisible()
+ await page.screenshot({ path: '/tmp/arc-overview.png', fullPage: true })
+ for (const [nav, heading] of [['Nodes', 'Nodes'], ['Ray Cluster', 'Ray Cluster'], ['Jobs', 'Jobs'], ['Metrics', 'Metrics'], ['Logs', 'Logs'], ['Settings', 'Settings']]) {
+   await page.getByRole('navigation').getByRole('link', { name: nav, exact: nav !== 'Nodes' }).click()
+   await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+ }
+ await page.goto('/nodes/box2')
+ await expect(page.getByRole('heading', { name: 'box2', exact: true })).toBeVisible()
+ await expect(page.getByRole('button', { name: 'Recover worker' })).toBeDisabled()
+ await page.getByRole('button', { name: 'Check safety' }).click()
+ await expect(page.getByText('Worker agent credentials are not configured')).toBeVisible()
+ await page.goto('/nodes/box1')
+ await expect(page.getByRole('button', { name: 'Stop worker', exact: true })).toBeDisabled()
+ await expect(page.getByRole('button', { name: 'Check safety' })).toBeDisabled()
+ await page.getByRole('button', { name: 'Toggle theme' }).click()
+ await expect(page.locator('.app')).toHaveClass(/light/)
+ await page.getByRole('button', { name: 'Toggle theme' }).click()
+ expect(errors).toEqual([])
+})
+test('mobile navigation and layout', async ({ page }) => {
+ await page.setViewportSize({ width: 390, height: 844 })
+ await page.goto('/overview')
+ await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
+ await page.getByRole('button', { name: 'Open navigation' }).click()
+ await page.getByRole('navigation').getByRole('link', { name: 'Nodes' }).click()
+ await expect(page.getByRole('heading', { name: 'Nodes', exact: true })).toBeVisible()
+ expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+ await page.screenshot({ path: '/tmp/arc-mobile.png', fullPage: true })
+})
