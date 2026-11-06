@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowUpRight, Server } from "lucide-react";
+import { ArrowUpRight, MoreHorizontal, Server } from "lucide-react";
 import type { Node } from "../lib/types";
 import { bytes, duration, pct, time } from "../lib/utils";
 import { Status } from "./common";
@@ -82,6 +82,19 @@ export function NodeTable({
                   >
                     <ArrowUpRight size={16} />
                   </Link>
+                  {!compact && (
+                    <details className="row-actions">
+                      <summary aria-label={`Actions for ${node.name}`}>
+                        <MoreHorizontal size={16} />
+                      </summary>
+                      <div>
+                        <Link to={`/nodes/${node.id}`}>Inspect / controls</Link>
+                        <Link to={`/logs?node=${node.id}`}>
+                          View worker logs
+                        </Link>
+                      </div>
+                    </details>
+                  )}
                 </td>
               </tr>
             );

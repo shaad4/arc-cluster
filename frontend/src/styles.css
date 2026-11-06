@@ -1131,3 +1131,28 @@ input::placeholder {
 .table-scroll {
   position: relative;
 }
+
+.row-actions {
+  display: inline-block;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+.row-actions summary {
+  display: flex;
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+}
+.row-actions summary::-webkit-details-marker {
+  display: none;
+}
+.row-actions div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  font-size: 10px;
+}
+.row-actions a:hover {
+  text-decoration: underline;
+}
