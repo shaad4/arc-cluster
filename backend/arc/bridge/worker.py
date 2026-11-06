@@ -78,6 +78,7 @@ def snapshot():
         ray.init(
             address=address,
             namespace="arc-monitor",
+            job_config=ray.job_config.JobConfig(metadata={"arc.component": "monitor"}),
             logging_level="ERROR",
             log_to_driver=False,
         )

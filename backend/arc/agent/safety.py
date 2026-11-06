@@ -6,6 +6,7 @@ import os
 
 from ray.job_submission import JobSubmissionClient
 from ray.util.state import list_actors, list_nodes, list_tasks
+from safety_rules import workloads_busy
 
 url = os.environ["ARC_AGENT_STATE_URL"]
 ip = os.environ["ARC_AGENT_BIND"]
@@ -18,26 +19,14 @@ try:
     ]
     actors = [dataclasses.asdict(a) for a in list_actors(**opts)]
     jobs = JobSubmissionClient(url).list_jobs()
-    # Conservatively refuse mutations while ANY user job/task/actor is active.
-    active_tasks = [
-        t
-        for t in tasks
-        if t["state"] not in {"FINISHED", "FAILED"} and t.get("name") != "arc.metrics"
-    ]
-    active_actors = [a for a in actors if a["state"] != "DEAD"]
-    active_jobs = [
-        j
-        for j in jobs
-        if str(j.status) in {"PENDING", "RUNNING"}
-        and getattr(j, "type", "") == "SUBMISSION"
-    ]
+    busy = workloads_busy(tasks, actors, [dataclasses.asdict(j) for j in jobs])
     member = any(n.get("node_ip") == ip and n["state"] == "ALIVE" for n in nodes)
     print(
         json.dumps(
             {
                 "verified": True,
                 "member": member,
-                "busy": bool(active_tasks or active_actors or active_jobs),
+                "busy": busy,
             }
         )
     )
