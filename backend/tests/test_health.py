@@ -13,7 +13,7 @@ def test_health_contract_and_server_timestamp():
         app = create_app(Settings(collector_enabled=False))
         async with app.router.lifespan_context(app):
             async with AsyncClient(
-                transport=ASGITransport(app=app), base_url="http://test"
+                transport=ASGITransport(app=app), base_url="http://localhost"
             ) as client:
                 before = datetime.now(UTC)
                 response = await client.get("/api/health")

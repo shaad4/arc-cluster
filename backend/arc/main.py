@@ -10,11 +10,13 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from arc.api.router import router
 from arc.config import APP_NAME, APP_VERSION, Settings
+from arc.logging_config import configure_logging
 from arc.models.error import ErrorResponse
 from arc.security import MutationGuard
 from arc.services.agents import AgentClient
 from arc.services.jobs import JobService
 from arc.services.monitor import Monitor
+from arc.web import mount_frontend
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 def create_app(
     settings: Settings | None = None, monitor: Monitor | None = None
 ) -> FastAPI:
+    configure_logging()
     settings = settings or Settings()
     agents = AgentClient(settings)
     monitor = monitor or Monitor(settings, agents=agents)
@@ -35,6 +38,7 @@ def create_app(
         finally:
             await monitor.close()
             await jobs.close()
+            await agents.close()
 
     application = FastAPI(
         title=APP_NAME,
@@ -45,7 +49,7 @@ def create_app(
     application.add_middleware(MutationGuard)
     application.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", "testserver", "test"],
+        allowed_hosts=["localhost", "127.0.0.1"],
     )
     application.state.agents = agents
     application.state.control_lock = asyncio.Lock()
@@ -60,6 +64,7 @@ def create_app(
         error = ErrorResponse(detail="Internal server error")
         return JSONResponse(status_code=500, content=error.model_dump())
 
+    mount_frontend(application, settings.frontend_dist)
     return application
 
 
