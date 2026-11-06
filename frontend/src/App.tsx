@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useLocation } from "react-router";
 import {
   Activity,
@@ -21,15 +21,38 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApi } from "./lib/api";
 import type { Overview } from "./lib/types";
 import { time } from "./lib/utils";
-import { Status } from "./components/common";
+import { Loading, Status } from "./components/common";
 import { Button } from "./components/ui/button";
-import { NodesPage, NodeDetailsPage } from "./pages/Nodes";
-import { RayPage } from "./pages/Ray";
-import { MetricsPage } from "./pages/Metrics";
-import { LogsPage } from "./pages/Logs";
-import { SettingsPage } from "./pages/Settings";
-import { JobsPage } from "./pages/Jobs";
-import { OverviewPage } from "./pages/Overview";
+const NodesPage = lazy(() =>
+  import("./pages/Nodes").then((module) => ({ default: module.NodesPage })),
+);
+const NodeDetailsPage = lazy(() =>
+  import("./pages/Nodes").then((module) => ({
+    default: module.NodeDetailsPage,
+  })),
+);
+const RayPage = lazy(() =>
+  import("./pages/Ray").then((module) => ({ default: module.RayPage })),
+);
+const MetricsPage = lazy(() =>
+  import("./pages/Metrics").then((module) => ({ default: module.MetricsPage })),
+);
+const LogsPage = lazy(() =>
+  import("./pages/Logs").then((module) => ({ default: module.LogsPage })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/Settings").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
+const JobsPage = lazy(() =>
+  import("./pages/Jobs").then((module) => ({ default: module.JobsPage })),
+);
+const OverviewPage = lazy(() =>
+  import("./pages/Overview").then((module) => ({
+    default: module.OverviewPage,
+  })),
+);
 const navigation = [
   ["overview", "Overview", LayoutDashboard],
   ["nodes", "Nodes", Server],
@@ -166,26 +189,28 @@ export default function App() {
           </div>
         </header>
         <main>
-          <Routes>
-            <Route path="/" element={<Navigate to="/overview" replace />} />
-            <Route path="/overview" element={<OverviewPage />} />
-            <Route path="/nodes" element={<NodesPage />} />
-            <Route path="/nodes/:nodeId" element={<NodeDetailsPage />} />
-            <Route path="/ray" element={<RayPage />} />
-            <Route path="/metrics" element={<MetricsPage />} />
-            <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/logs" element={<LogsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route
-              path="*"
-              element={
-                <div className="empty">
-                  <h1>Page not found</h1>
-                  <NavLink to="/overview">Return to overview</NavLink>
-                </div>
-              }
-            />
-          </Routes>
+          <Suspense fallback={<Loading />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/overview" replace />} />
+              <Route path="/overview" element={<OverviewPage />} />
+              <Route path="/nodes" element={<NodesPage />} />
+              <Route path="/nodes/:nodeId" element={<NodeDetailsPage />} />
+              <Route path="/ray" element={<RayPage />} />
+              <Route path="/metrics" element={<MetricsPage />} />
+              <Route path="/jobs" element={<JobsPage />} />
+              <Route path="/logs" element={<LogsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route
+                path="*"
+                element={
+                  <div className="empty">
+                    <h1>Page not found</h1>
+                    <NavLink to="/overview">Return to overview</NavLink>
+                  </div>
+                }
+              />
+            </Routes>
+          </Suspense>
         </main>
         <footer>
           <span>
