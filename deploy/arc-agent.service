@@ -1,0 +1,16 @@
+[Unit]
+Description=ARC private worker agent
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/projects/cluster-monitor
+ExecStart=/data/projects/cluster-monitor/agent-venv/bin/python -m arc.agent.main
+EnvironmentFile=%h/.config/arc/agent.env
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

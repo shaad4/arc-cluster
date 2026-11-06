@@ -1,0 +1,17 @@
+[Unit]
+Description=ARC Distributed Compute Control Plane
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/projects/cluster-monitor
+ExecStart=/data/projects/cluster-monitor/scripts/run.sh
+EnvironmentFile=-%h/.config/arc/arc.env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

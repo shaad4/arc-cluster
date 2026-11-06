@@ -32,3 +32,9 @@ coverage/
 
 # TypeScript incremental cache
 *.tsbuildinfo
+
+# ARC local runtime and worker environment
+.runtime/
+agent-venv/
+frontend/test-results/
+frontend/playwright-report/
