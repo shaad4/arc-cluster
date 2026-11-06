@@ -71,43 +71,58 @@ async def control(request, node_id, action, body):
                 severity="warning",
             )
         )
-        await request.app.state.agents.request(
-            node,
-            "POST",
-            "/control",
-            timeout=60,
-            json={"action": action, "confirmed": True},
-        )
-        executed_at = time.time()
-        monitor.wake.set()
-        for _ in range(20):
-            await asyncio.sleep(1)
-            current = next(n for n in monitor.nodes if n.id == node_id)
-            if (
-                monitor.ray.available
-                and (monitor.ray.sampled_at or 0) > executed_at
-                and (
-                    (action == "stop" and current.ray_status == "dead")
-                    or (action != "stop" and current.ray_status == "alive")
-                )
-            ):
-                monitor.events.appendleft(
-                    Event(
-                        timestamp=time.time(),
-                        node=node.id,
-                        message=f"{action} verified through Ray membership",
+        monitor.managing.add(node_id)
+        try:
+            await request.app.state.agents.request(
+                node,
+                "POST",
+                "/control",
+                timeout=60,
+                json={"action": action, "confirmed": True},
+            )
+            executed_at = time.time()
+            monitor.wake.set()
+            for _ in range(20):
+                await asyncio.sleep(1)
+                current = next(n for n in monitor.nodes if n.id == node_id)
+                if (
+                    monitor.ray.available
+                    and (monitor.ray.sampled_at or 0) > executed_at
+                    and (
+                        (action == "stop" and current.ray_status == "dead")
+                        or (action != "stop" and current.ray_status == "alive")
                     )
+                ):
+                    monitor.events.appendleft(
+                        Event(
+                            timestamp=time.time(),
+                            node=node.id,
+                            message=f"{action} verified through Ray membership",
+                        )
+                    )
+                    return ControlResult(
+                        status="verified", message="Ray membership verified"
+                    )
+            return ControlResult(
+                status="unverified",
+                message=(
+                    "Command ran; membership verification timed out. "
+                    "Inspect node before retrying."
+                ),
+            )
+        except Exception:
+            monitor.events.appendleft(
+                Event(
+                    timestamp=time.time(),
+                    node=node_id,
+                    message=f"{action} failed; inspect worker state",
+                    severity="error",
                 )
-                return ControlResult(
-                    status="verified", message="Ray membership verified"
-                )
-        return ControlResult(
-            status="unverified",
-            message=(
-                "Command ran; membership verification timed out. "
-                "Inspect node before retrying."
-            ),
-        )
+            )
+            raise
+        finally:
+            monitor.managing.discard(node_id)
+            monitor.wake.set()
 
 
 @router.post("/nodes/{node_id}/ray/{action}", response_model=ControlResult)

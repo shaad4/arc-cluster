@@ -41,6 +41,7 @@ class Monitor:
         self.error = None
         self.task = None
         self.wake = asyncio.Event()
+        self.managing: set[str] = set()
 
     async def start(self):
         if self.settings.collector_enabled:
@@ -252,6 +253,10 @@ class Monitor:
                 n.ray_status = "unknown"
                 if n.stale:
                     n.machine_status = "unknown"
+            if not ray.available and n.status == "healthy":
+                n.status = "degraded"
+            if n.id in self.managing:
+                n.status = "recovering"
             if n.stale and n.status == "healthy":
                 n.status = "degraded"
         return Overview(

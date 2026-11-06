@@ -102,3 +102,11 @@ def test_stale_ray_membership_is_unknown():
     assert monitor.aggregate().active_nodes is None
     assert monitor.overview().nodes[0].ray_status == "unknown"
     assert not monitor.ray_snapshot().available
+
+
+def test_in_progress_control_is_visible():
+    monitor = Monitor(Settings(collector_enabled=False))
+    monitor.managing.add("box2")
+    assert monitor.overview().nodes[1].status == "recovering"
+    monitor.managing.clear()
+    assert monitor.overview().nodes[1].status == "unknown"
