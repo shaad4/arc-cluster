@@ -28,7 +28,8 @@ only ARC's child is stopped, never Ray infrastructure. The next sample reconnect
 The bridge reuses `ray.init(address=..., namespace="arc-monitor")`. `ray.nodes()`,
 `cluster_resources()`, and `available_resources()` supply actual membership and
 logical capacity. The State API supplies task/actor state with strict incomplete
-output handling. These are not inferred from process presence.
+output handling. ARC metric probes are excluded from task queries so monitoring
+does not crowd out workload observations or exhaust the record limit. These are not inferred from process presence.
 
 Node-pinned `NodeAffinitySchedulingStrategy(soft=False)` tasks sample psutil with
 150 ms CPU windows, no retries, and zero requested logical CPUs. Pending metric

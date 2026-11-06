@@ -12,7 +12,10 @@ ip = os.environ["ARC_AGENT_BIND"]
 try:
     opts = dict(address=url, timeout=3, limit=10000, raise_on_missing_output=True)
     nodes = [dataclasses.asdict(n) for n in list_nodes(**opts)]
-    tasks = [dataclasses.asdict(t) for t in list_tasks(**opts)]
+    tasks = [
+        dataclasses.asdict(t)
+        for t in list_tasks(filters=[("name", "!=", "arc.metrics")], **opts)
+    ]
     actors = [dataclasses.asdict(a) for a in list_actors(**opts)]
     jobs = JobSubmissionClient(url).list_jobs()
     # Conservatively refuse mutations while ANY user job/task/actor is active.

@@ -60,8 +60,13 @@ def encode(value):
 
 def state(fn):
     try:
+        filters = [("name", "!=", "arc.metrics")] if fn is list_tasks else None
         result = fn(
-            address=dashboard, timeout=3, limit=1000, raise_on_missing_output=True
+            filters=filters,
+            address=dashboard,
+            timeout=3,
+            limit=1000,
+            raise_on_missing_output=True,
         )
         return {"items": [encode(x) for x in result], "error": None}
     except Exception:
