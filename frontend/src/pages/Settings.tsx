@@ -9,6 +9,7 @@ import {
   Panel,
   Status,
 } from "../components/common";
+import { AutoRecovery } from "../components/AutoRecovery";
 import { Button } from "../components/ui/button";
 function PollingForm({ interval }: { interval: number }) {
   const [value, setValue] = useState(interval),
@@ -120,6 +121,7 @@ export function SettingsPage() {
           </div>
         </Panel>
       </div>
+      <AutoRecovery />
       <Panel
         title="Node agents"
         subtitle="Credentials are read from a restricted server-side file and never returned to the browser."

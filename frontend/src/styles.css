@@ -1156,3 +1156,50 @@ input::placeholder {
 .row-actions a:hover {
   text-decoration: underline;
 }
+
+.recovery-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px 20px;
+}
+.recovery-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--secondary);
+}
+.recovery-options input[type="number"] {
+  width: 76px;
+}
+.recovery-reason {
+  white-space: normal;
+  max-width: 250px;
+  line-height: 1.6;
+}
+.status-recovery_successful {
+  color: #65b98b;
+}
+.status-recovery_successful > span {
+  background: #65b98b;
+}
+.status-worker_stopped,
+.status-worker_disconnected,
+.status-waiting_for_node {
+  color: #d4aa61;
+}
+.status-worker_stopped > span,
+.status-worker_disconnected > span,
+.status-waiting_for_node > span {
+  background: #d4aa61;
+}
+.status-recovery_failed,
+.status-manual_intervention_required {
+  color: #e87979;
+}
+.status-recovery_failed > span,
+.status-manual_intervention_required > span {
+  background: #e87979;
+}

@@ -124,3 +124,35 @@ export interface Preflight {
   member: boolean | null;
   ray_process: boolean | null;
 }
+
+export interface SupervisorStatus {
+  approved: boolean;
+  enabled: boolean;
+  state: string;
+  message: string;
+  attempts: number;
+  last_attempt: number | null;
+  last_result: string | null;
+  next_attempt: number | null;
+  lease_expires: number | null;
+  manual_hold: boolean;
+}
+export interface RecoveryConfiguration {
+  enabled: boolean;
+  interval: number;
+  max_retries: number;
+  nodes: Record<string, boolean>;
+}
+export interface RecoveryStatus {
+  approved: boolean;
+  configuration: RecoveryConfiguration;
+  configuration_error: string | null;
+  nodes: {
+    node_id: string;
+    enabled: boolean;
+    state: string;
+    message: string;
+    checked_at: number | null;
+    supervisor: SupervisorStatus | null;
+  }[];
+}
