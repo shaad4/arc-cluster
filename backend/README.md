@@ -28,3 +28,12 @@ cd backend
 
 Unexpected errors return a generic JSON error with HTTP 500; tracebacks stay in
 server logs. FastAPI retains its standard HTTP and request-validation errors.
+
+`GET /api/health` reports application liveness: `name` (`ARC`), installed package
+`version`, `status` (`ok`), and a fresh UTC `timestamp` in ISO 8601 format. Responses
+disable caching. This endpoint does not check Ray membership, cluster health,
+or machine reachability.
+
+```sh
+curl http://127.0.0.1:8000/api/health
+```
