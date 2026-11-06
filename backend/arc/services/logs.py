@@ -14,7 +14,14 @@ def redact(text: str) -> str:
     for line in text.splitlines()[-500:]:
         if "-----BEGIN " in line:
             private = True
-        if private or SECRET.search(line):
+        if (
+            private
+            or SECRET.search(line)
+            or re.search(
+                r"AKIA[A-Z0-9]{16}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|^[A-Za-z0-9+/=]{64,}$",
+                line,
+            )
+        ):
             result.append("[redacted sensitive line]")
         else:
             result.append(line[:2000])
